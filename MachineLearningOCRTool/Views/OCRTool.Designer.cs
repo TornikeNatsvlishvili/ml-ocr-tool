@@ -71,6 +71,11 @@
             this.label11 = new System.Windows.Forms.Label();
             this.txtExportSize = new System.Windows.Forms.NumericUpDown();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.btnFromText = new System.Windows.Forms.Button();
+            this.txtPixel = new System.Windows.Forms.TextBox();
+            this.openResult = new System.Windows.Forms.Button();
+            this.label13 = new System.Windows.Forms.Label();
+            this.lblTotalBlobs = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.txtPostMergeFilter)).BeginInit();
@@ -601,11 +606,62 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Export";
             // 
+            // btnFromText
+            // 
+            this.btnFromText.Location = new System.Drawing.Point(615, 4);
+            this.btnFromText.Name = "btnFromText";
+            this.btnFromText.Size = new System.Drawing.Size(104, 23);
+            this.btnFromText.TabIndex = 38;
+            this.btnFromText.Text = "Test Exported File";
+            this.btnFromText.UseVisualStyleBackColor = true;
+            this.btnFromText.Click += new System.EventHandler(this.btnFromText_Click);
+            // 
+            // txtPixel
+            // 
+            this.txtPixel.Location = new System.Drawing.Point(473, 5);
+            this.txtPixel.Name = "txtPixel";
+            this.txtPixel.Size = new System.Drawing.Size(100, 20);
+            this.txtPixel.TabIndex = 39;
+            // 
+            // openResult
+            // 
+            this.openResult.Location = new System.Drawing.Point(579, 3);
+            this.openResult.Name = "openResult";
+            this.openResult.Size = new System.Drawing.Size(30, 23);
+            this.openResult.TabIndex = 42;
+            this.openResult.Text = "...";
+            this.openResult.UseVisualStyleBackColor = true;
+            this.openResult.Click += new System.EventHandler(this.openResult_Click);
+            // 
+            // label13
+            // 
+            this.label13.AutoSize = true;
+            this.label13.Location = new System.Drawing.Point(396, 10);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(71, 13);
+            this.label13.TabIndex = 43;
+            this.label13.Text = "Exported File:";
+            // 
+            // lblTotalBlobs
+            // 
+            this.lblTotalBlobs.AutoSize = true;
+            this.lblTotalBlobs.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(177)));
+            this.lblTotalBlobs.Location = new System.Drawing.Point(606, 36);
+            this.lblTotalBlobs.Name = "lblTotalBlobs";
+            this.lblTotalBlobs.Size = new System.Drawing.Size(95, 15);
+            this.lblTotalBlobs.TabIndex = 44;
+            this.lblTotalBlobs.Text = "Total Blobs: 0";
+            // 
             // OCRTool
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1083, 738);
+            this.Controls.Add(this.lblTotalBlobs);
+            this.Controls.Add(this.label13);
+            this.Controls.Add(this.openResult);
+            this.Controls.Add(this.txtPixel);
+            this.Controls.Add(this.btnFromText);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.label11);
             this.Controls.Add(this.btnOpenModelFile);
@@ -698,5 +754,10 @@
         private System.Windows.Forms.NumericUpDown txtExportSize;
         private System.Windows.Forms.Label label12;
         private System.Windows.Forms.GroupBox groupBox2;
+        private System.Windows.Forms.Button btnFromText;
+        private System.Windows.Forms.TextBox txtPixel;
+        private System.Windows.Forms.Button openResult;
+        private System.Windows.Forms.Label label13;
+        private System.Windows.Forms.Label lblTotalBlobs;
     }
 }

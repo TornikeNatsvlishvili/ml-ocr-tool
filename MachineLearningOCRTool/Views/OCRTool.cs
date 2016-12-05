@@ -10,6 +10,8 @@ using AForge.Imaging.Filters;
 using MachineLearningOCRTool.Controls;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra.Complex;
+using System.Runtime.InteropServices;
+using System.Collections;
 
 namespace MachineLearningOCRTool.Views
 {
@@ -40,6 +42,11 @@ namespace MachineLearningOCRTool.Views
                 txtFile.Text = Properties.Settings.Default.InputImage;
             }
 
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.ResultImage))
+            {
+                txtPixel.Text = Properties.Settings.Default.ResultImage;
+            }
+
             if (!string.IsNullOrEmpty(Properties.Settings.Default.ModelParams))
             {
                 txtModelParams.Text = Properties.Settings.Default.ModelParams;
@@ -67,6 +74,9 @@ namespace MachineLearningOCRTool.Views
 
             m_original = new Bitmap(txtFile.Text);
 
+            // resize original to current picturebox size
+            m_original = new Bitmap(m_original, new Size(1500,1500));
+
             // create grayscale filter (BT709)
             Grayscale filter = new Grayscale(0.2125, 0.7154, 0.0721);
             m_binarized = filter.Apply(m_original);
@@ -85,11 +95,15 @@ namespace MachineLearningOCRTool.Views
             bc.ProcessImage(m_binarized);
             Rectangle[] blobsRect = bc.GetObjectsRectangles();
             Dictionary<int, List<Rectangle>> orderedBlobs = ReorderBlobs(blobsRect);
+            int totalBlobs = 0;
 
             foreach (KeyValuePair<int, List<Rectangle>> orderedBlob in orderedBlobs)
             {
                 orderedBlob.Value.ForEach(r => AddBlobPanel(orderedBlob.Key, r));
+                totalBlobs += orderedBlob.Value.Count;
             }
+
+            lblTotalBlobs.Text = "Total Blobs: " + totalBlobs;
 
             pictureBox1.Image = chkShowBinarize.Checked ? m_binarized : m_original;
 
@@ -97,7 +111,7 @@ namespace MachineLearningOCRTool.Views
         }
 
         /// <summary>
-        /// This method tries to order the blobs in rows.
+        /// This method tries to order the blobs in columns.
         /// </summary>
         private Dictionary<int, List<Rectangle>> ReorderBlobs(Rectangle[] blobs)
         {
@@ -109,32 +123,32 @@ namespace MachineLearningOCRTool.Views
             List<Rectangle> mergedBlobs =
                 MergeIntersectingBlobs(blobs.Where(r => r.Width * r.Height >= txtPreMergeFilter.Value).ToArray());
 
-            // Filter for blobs that are larger than 50 "sq pixels" and order by Y.
+            // Filter for blobs that are larger than 50 "sq pixels" and order by X.
             mergedBlobs =
                 new List<Rectangle>(
-                    mergedBlobs.Where(r => r.Height * r.Width >= txtPostMergeFilter.Value).OrderBy(r => r.Y));
+                    mergedBlobs.Where(r => r.Height * r.Width >= txtPostMergeFilter.Value).OrderBy(r => r.X));
 
-            // Add the first row and blob.
-            int currRowInd = 0;
-            result.Add(currRowInd, new List<Rectangle>());
-            result[currRowInd].Add(mergedBlobs[0]);
+            // Add the first column and blob.
+            int curColInd = 0;
+            result.Add(curColInd, new List<Rectangle>());
+            result[curColInd].Add(mergedBlobs[0]);
 
             // Now we loop thru all the blobs and try to guess where a new line begins.
             for (int i = 1; i < mergedBlobs.Count; i++)
             {
-                // Since the blobs are ordered by Y, we consider a NEW line if the current blob's Y
-                // is BELOW the previous blob lower quarter.
-                // The assumption is that blobs on the same row will have more-or-less same Y, so if
-                // the Y is below the previous blob lower quarter it's probably a new line.
-                if (mergedBlobs[i].Y > mergedBlobs[i - 1].Y + 0.75 * mergedBlobs[i - 1].Height)
+                // Since the blobs are ordered by X, we consider a NEW column if the current blob's X
+                // is TO THE RIGHT of the previous blob lower quarter.
+                // The assumption is that blobs in the same column will have more-or-less same X, so if
+                // the X is right of the previous blob right quarter it's probably a new column.
+                if (mergedBlobs[i].X > mergedBlobs[i - 1].X + 0.75 * mergedBlobs[i - 1].Width)
                 {
-                    // Add a new row to the dictionary
-                    ++currRowInd;
-                    result.Add(currRowInd, new List<Rectangle>());
+                    // Add a new column to the dictionary
+                    ++curColInd;
+                    result.Add(curColInd, new List<Rectangle>());
                 }
 
-                // Add blob to the current row.
-                result[currRowInd].Add(mergedBlobs[i]);
+                // Add blob to the current column.
+                result[curColInd].Add(mergedBlobs[i]);
             }
 
             return result;
@@ -311,9 +325,23 @@ namespace MachineLearningOCRTool.Views
             
             // Fill back color.
             g.FillRectangle(new SolidBrush(bColor), 0, 0, size, size);
-            
+
+            int X = 0, Y = 0;
+            // Get dest location
+            if(size == blob.Height)
+            {
+                // Center image horizontally
+                int centerX = size / 2;
+                X = centerX - (int) Math.Ceiling(blob.Width / 2.0);
+            }else if(size == blob.Width)
+            {
+                // Center image vertically
+                int centerY = size / 2;
+                Y = centerY - (int)Math.Ceiling(blob.Height / 2.0);
+            }
+
             // Now we clip the blob from the PictureBox image.
-            g.DrawImage(source, new Rectangle(0, 0, blob.Width, blob.Height), blob.Left, blob.Top, blob.Width, blob.Height, GraphicsUnit.Pixel);
+            g.DrawImage(source, new Rectangle(X, Y, blob.Width, blob.Height), blob.Left, blob.Top, blob.Width, blob.Height, GraphicsUnit.Pixel);
             g.Dispose();
 
             if (rotationAngel != 0)
@@ -324,11 +352,23 @@ namespace MachineLearningOCRTool.Views
                 newImage = filter.Apply(newImage);
             }
 
-            // Resize the image.
-            ResizeBilinear resizefilter = new ResizeBilinear((int)txtExportSize.Value, (int)txtExportSize.Value);
-            newImage = resizefilter.Apply(newImage);
-            
             return newImage;
+            //// have borders 10% of the desired width&height
+            //int border_width = (int)Math.Ceiling((int)txtExportSize.Value * .1);
+            //int new_desired_size = (int)txtExportSize.Value - border_width * 2;
+
+            //// Resize the image.
+            //ResizeBilinear resizefilter = new ResizeBilinear(new_desired_size, new_desired_size);
+            //newImage = resizefilter.Apply(newImage);
+
+            //// place image at center of new image
+            //Bitmap bordered_newImage = new Bitmap((int)txtExportSize.Value, (int)txtExportSize.Value, PixelFormat.Format24bppRgb); ;
+            //g = Graphics.FromImage(bordered_newImage);
+            //g.FillRectangle(new SolidBrush(bColor), 0, 0, (int)txtExportSize.Value, (int)txtExportSize.Value);
+            //g.DrawImage(newImage, new Rectangle(border_width, border_width, newImage.Width+border_width, newImage.Height + border_width), 0, 0, newImage.Width, newImage.Height, GraphicsUnit.Pixel);
+            //g.Dispose();
+
+            //return bordered_newImage;
         }
 
         /// <summary>
@@ -341,12 +381,12 @@ namespace MachineLearningOCRTool.Views
             WriteImageToFile(sw, key, newImage);
             
             // Write a rotated version.
-            newImage = CropBlob(blob, pictureBox1.Image, 10);
-            WriteImageToFile(sw, key, newImage);
+            //newImage = CropBlob(blob, pictureBox1.Image, 10);
+            //WriteImageToFile(sw, key, newImage);
             
             // Write another rotated version (to the other dir).
-            newImage = CropBlob(blob, pictureBox1.Image, -10);
-            WriteImageToFile(sw, key, newImage);
+            //newImage = CropBlob(blob, pictureBox1.Image, -10);
+            //WriteImageToFile(sw, key, newImage);
         }
 
         private void WriteImageToFile(StreamWriter sw, int key, Bitmap newImage)
@@ -357,7 +397,8 @@ namespace MachineLearningOCRTool.Views
                 for (int j = 0; j < newImage.Width; j++)
                 {
                     Color pixel = newImage.GetPixel(i, j);
-                    sw.Write(Common.GetColorAverage(pixel) + ",");
+                    double normalized = Common.GetColorAverage(pixel) / 255.0;
+                    sw.Write(normalized + ",");
                 }
             }
 
@@ -521,7 +562,7 @@ namespace MachineLearningOCRTool.Views
                 openFileDialog1.InitialDirectory = Path.GetDirectoryName(txtFile.Text);
             }
             
-            openFileDialog1.Filter = "JPG|*.jpg|BMP|*.bmp";
+            openFileDialog1.Filter = "JPG|*.jpg|PNG|*.png|BMP|*.bmp";
             DialogResult dr = openFileDialog1.ShowDialog();
             if (dr == DialogResult.OK)
             {
@@ -680,5 +721,60 @@ namespace MachineLearningOCRTool.Views
         }
 
         #endregion
+
+        private void btnFromText_Click(object sender, EventArgs e)
+        {
+            m_selectedBlobs.Clear();
+            pictureBox1.Controls.Clear();
+            pictureBox1.Image = null;
+
+            string[] lines = File.ReadAllLines(txtPixel.Text);
+            int W_H = (int)Math.Sqrt(lines[0].Split(new Char[] { ',' }).Length - 1);
+
+            int total_pixels = W_H * W_H * lines.Length;
+            int width = 33 * W_H; // 33 images horizontally
+            int height = total_pixels / width;
+            if(height * width < total_pixels) height += W_H;
+            Bitmap large_img = new Bitmap(width, height, PixelFormat.Format16bppRgb555);
+            int x = 0, y = 0;
+     
+            for(int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                string[] img_vec = line.Split(new Char[] { ',' });
+                int category = int.Parse(img_vec[img_vec.Length - 1]);
+                double[] img_vec_d = img_vec.Select(item => double.Parse(item)).ToArray();
+                
+                for (int j = 0; j < img_vec_d.Length -1; j++) // -1 for category element 
+                {
+                    bool bw = img_vec_d[j]*255 > 200 ? true : false;
+                    int x2 = j % W_H;
+                    int y2 = j / W_H;
+                    large_img.SetPixel(y2 + y, x2 + x, bw ?Color.White:Color.Black);
+                }
+                
+                x = (i % (int)Math.Ceiling((double)height / W_H)) * W_H;
+                y = (i / (int)Math.Ceiling((double)height / W_H)) * W_H;
+            }
+            
+            pictureBox1.Image = large_img;
+        }
+
+        private void openResult_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(txtPixel.Text))
+            {
+                openFileDialog1.InitialDirectory = Path.GetDirectoryName(txtPixel.Text);
+            }
+
+            openFileDialog1.Filter = "Any|*.*";
+            DialogResult dr = openFileDialog1.ShowDialog();
+            if (dr == DialogResult.OK)
+            {
+                txtPixel.Text = openFileDialog1.FileName;
+                Properties.Settings.Default.ResultImage = openFileDialog1.FileName;
+                Properties.Settings.Default.Save();
+            }
+        }
     }
 }
